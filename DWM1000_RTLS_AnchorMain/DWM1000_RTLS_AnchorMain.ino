@@ -39,6 +39,10 @@ typedef ESP8266WebServer WEBServer;
 const char* ssid = "UWBLS Net"; // Will's Settings
 const char* password = "123456789"; // Will's Settings
 
+// Wifi Sending Options
+const char* serverAddress = "http://enqb0w8a2ni1j.x.pipedream.net";
+unsigned int thisAnchorNumber = 1;
+
 typedef struct Position {
 	double x;
 	double y;
@@ -174,17 +178,18 @@ void calculatePosition(double &x, double &y) {
 
 // Project's SUPER FUCKING LOOP
 void loop() {
-	// Run the DWM1000 Loop
-	//loopDWM();
+	// Run the DWM1000 Check for Ranging, do appropriate response to Wifi
+	loopDWM();
 
-	// Run the Test Wifi System
-	testWifiRequest();
+	// Run the Test Wifi System (to a RequestBin server)
+	testWifiRequestBin();
 
 	//delay(10000);
 	
 }
 
-void testWifiRequest() {
+// Basic test to a RequestBin server
+void testWifiRequestBin() {
 	Serial.println("Beginning Request Send");
 
 	// Check if Connected
@@ -195,14 +200,46 @@ void testWifiRequest() {
 
 	// Make the http client, send request
 	HTTPClient http;
-	http.begin("http://enqb0w8a2ni1j.x.pipedream.net"); //  if this fails, try http instead of https
+	http.begin(serverAddress); //  if this fails, try http instead of https
 	int httpCode = http.GET();
 
 	// Check the response
 	if (httpCode > 0) {
 		String payload = http.getString();
 		Serial.println(payload);
-		Serial.println("\n");
+	}
+	else {
+		Serial.print("Got httpCode!=0, httpCode=");
+		Serial.println(httpCode);
+	}
+	http.end();
+}
+
+// Calls the main server with the query string
+void makeWifiRequest(String queryString) {
+	Serial.println("Beginning Request Send");
+
+	// Check if Connected
+	if (WiFi.status() != WL_CONNECTED) {
+		// TODO Show an error LED, very bad
+		Serial.println("Not connected to WiFi.");
+		return;
+	}
+
+	// Prepare the request string
+	String requestString = serverAddress;
+	requestString += "?";
+	requestString += queryString;
+
+	// Make the http client, send request
+	HTTPClient http;
+	http.begin(serverAddress); //  if this fails, try http instead of https
+	int httpCode = http.GET();
+
+	// Check the response
+	if (httpCode > 0) {
+		String payload = http.getString();
+		Serial.println(payload);
 	}
 	else {
 		Serial.print("Got httpCode!=0, httpCode=");
@@ -210,30 +247,56 @@ void testWifiRequest() {
 	}
 	http.end();
 
-
 }
 
 void loopDWM() {
 	// Literal Duplication of F-Army code
-	if(DW1000NgRTLS::receiveFrame()){
+	if(DW1000NgRTLS::receiveFrame()) {
 		size_t recv_len = DW1000Ng::getReceivedDataLength();
 		byte recv_data[recv_len];
 		DW1000Ng::getReceivedData(recv_data, recv_len);
 
 
 		if(recv_data[0] == BLINK) {
+			// Received an "I want to start ranging" from a tag
 			DW1000NgRTLS::transmitRangingInitiation(&recv_data[2], tag_shortAddress);
 			DW1000NgRTLS::waitForTransmission();
 
 			RangeAcceptResult result = DW1000NgRTLS::anchorRangeAccept(NextActivity::RANGING_CONFIRM, next_anchor);
-			if(!result.success) return;
-			range_self = result.range;
+			if(!result.success) {
+				// TODO Blink an error LED or something
+				return;
+			}
+
+			// result contains .success, .range
 
 			String rangeString = "Range: "; rangeString += range_self; rangeString += " m";
 			rangeString += "\t RX power: "; rangeString += DW1000Ng::getReceivePower(); rangeString += " dBm";
-			Serial.println(rangeString);
 
-		} else if(recv_data[9] == 0x60) {
+			String queryString;
+			queryString = "Range=";
+			queryString += result.range;
+
+			queryString += "&Time="; // TODO implement some anchor-side timing system
+			queryString += "0";
+
+			queryString += "&AnchorNumber=";
+			queryString += thisAnchorNumber;
+
+			queryString += "&Success=";
+			queryString += (int)result.success;
+
+			queryString += "&ReceivePower=";
+			queryString += DW1000Ng::getReceivePower();
+
+			Serial.println(rangeString);
+			makeWifiRequest(queryString);
+
+		} 
+
+ // This chunk is for receiving a range from another non-main anchor
+		/*
+		else if(recv_data[9] == 0x60) {
 			double range = static_cast<double>(DW1000NgUtils::bytesAsValue(&recv_data[10],2) / 1000.0);
 			String rangeReportString = "Range from: "; rangeReportString += recv_data[7];
 			rangeReportString += " = "; rangeReportString += range;
@@ -254,5 +317,7 @@ void loopDWM() {
 				received_B = false;
 			}
 		}
+		*/
+		
 	}
 }
