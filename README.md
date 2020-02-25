@@ -18,3 +18,8 @@ This section describes the parameters, sent by GET query, to the web server. Eac
 2. Anchor numbering system, with either P2P or a configuration or something better
 3. Set all Wifi credentials from main anchor by DWM communication
 4. Remove hardcoding of Wifi credentials
+5. Add division of bands
+6. Consider adding a watchdog
+
+## Next To Do
+* Fix issue with sending query string to server (it's giving httpCode = -1)

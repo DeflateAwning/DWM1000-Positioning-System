@@ -42,6 +42,7 @@ const char* password = "123456789"; // Will's Settings
 // Wifi Sending Options
 const char* serverAddress = "http://enqb0w8a2ni1j.x.pipedream.net";
 unsigned int thisAnchorNumber = 1;
+const bool printDebugMessages = true;
 
 typedef struct Position {
 	double x;
@@ -108,7 +109,7 @@ void setup() {
 	setupWifi();
 	
 	// Setup the DWM1000
-	//setupDWM();
+	setupDWM();
 
 }
 
@@ -182,7 +183,7 @@ void loop() {
 	loopDWM();
 
 	// Run the Test Wifi System (to a RequestBin server)
-	testWifiRequestBin();
+	//testWifiRequestBin();
 
 	//delay(10000);
 	
@@ -217,7 +218,7 @@ void testWifiRequestBin() {
 
 // Calls the main server with the query string
 void makeWifiRequest(String queryString) {
-	Serial.println("Beginning Request Send");
+	if (printDebugMessages) Serial.println("Beginning Request Send");
 
 	// Check if Connected
 	if (WiFi.status() != WL_CONNECTED) {
@@ -230,10 +231,11 @@ void makeWifiRequest(String queryString) {
 	String requestString = serverAddress;
 	requestString += "?";
 	requestString += queryString;
+	if (printDebugMessages) Serial.println(requestString);
 
 	// Make the http client, send request
 	HTTPClient http;
-	http.begin(serverAddress); //  if this fails, try http instead of https
+	http.begin(requestString); //  if this fails, try http instead of https
 	int httpCode = http.GET();
 
 	// Check the response
@@ -265,12 +267,14 @@ void loopDWM() {
 			RangeAcceptResult result = DW1000NgRTLS::anchorRangeAccept(NextActivity::RANGING_CONFIRM, next_anchor);
 			if(!result.success) {
 				// TODO Blink an error LED or something
+				// TODO send a wifi request, probably
+				Serial.println("anchorRangeAccept failed (result.success = false)");
 				return;
 			}
 
 			// result contains .success, .range
 
-			String rangeString = "Range: "; rangeString += range_self; rangeString += " m";
+			String rangeString = "Range: "; rangeString += result.range; rangeString += " m";
 			rangeString += "\t RX power: "; rangeString += DW1000Ng::getReceivePower(); rangeString += " dBm";
 
 			String queryString;
