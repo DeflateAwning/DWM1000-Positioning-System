@@ -23,3 +23,20 @@ This section describes the parameters, sent by GET query, to the web server. Eac
 
 ## Next To Do
 * Fix issue with sending query string to server (it's giving httpCode = -1)
+
+## Dependencies
+* arduino-dw1000-ng (No Modifications Yet)
+* ArduinoJson (v6)
+* WiFiUdp
+* NTPClient
+
+## Iterative Design Notes
+* Does anything work?
+	* Run the DWM1000 reference code
+	* Get Anchors connected to hard coded Wifi
+	* Get the Anchors submitting ranging information to a server
+* Improve Web Communication
+	* Add NTP Connection (anchors have the time)
+	* Switch GET request to JSON POST request (but only one ranging per submission)
+* Add queue design
+	* Multiple rangings per JSON POST request to server

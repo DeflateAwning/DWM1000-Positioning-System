@@ -35,6 +35,10 @@ typedef ESP8266WebServer WEBServer;
 #include <DW1000NgRanging.hpp>
 #include <DW1000NgRTLS.hpp>
 
+// NTP Client
+#include <NTPClient.h>
+#include <WiFiUdp.h>
+
 // Wifi Configuration Options
 const char* ssid = "UWBLS Net"; // Will's Settings
 const char* password = "123456789"; // Will's Settings
@@ -103,7 +107,7 @@ frame_filtering_configuration_t ANCHOR_FRAME_FILTER_CONFIG = {
 void setup() {
 	// Init Debug
 	Serial.begin(115200);
-	Serial.println(F("### DW1000Ng-arduino-ranging-anchorMain ###"));
+	Serial.println(F("\n### UWBLS-DWM1000-RTLS-AnchorMain ###"));
 
 	// Setup the Wifi Connection
 	setupWifi();
@@ -217,7 +221,7 @@ void testWifiRequestBin() {
 }
 
 // Calls the main server with the query string
-void makeWifiRequest(String queryString) {
+void makeWifiRequestGET(String queryString) {
 	if (printDebugMessages) Serial.println("Beginning Request Send");
 
 	// Check if Connected
@@ -251,6 +255,28 @@ void makeWifiRequest(String queryString) {
 
 }
 
+// Calls the main server with the json query string
+void makeWifiRequestJSON(const char* jsonStr) {
+	HTTPClient http; //Declare object of class HTTPClient
+	http.begin(serverAddress); //Specify request destination
+	http.addHeader("Content-Type", "application/json"); //Specify content-type header
+
+	int httpCode = http.POST(jsonStr); //Send the request
+	String payload = http.getString(); //Get the response payload
+	if (httpCode > 0) {
+		if (printDebugMessages) Serial.print("Successful JSON POST, httpCode="); Serial.println(httpCode);
+		if (printDebugMessages) Serial.println(payload); //Print request response payload
+	}
+	else {
+		if (printDebugMessages) Serial.print("Failed JSON POST, httpCode="); Serial.println(httpCode);
+		if (printDebugMessages) Serial.println(payload); //Print request response payload (maybe not present for fails)
+	}
+	http.end(); //Close connection
+
+}
+
+
+
 void loopDWM() {
 	// Literal Duplication of F-Army code
 	if(DW1000NgRTLS::receiveFrame()) {
@@ -274,6 +300,7 @@ void loopDWM() {
 
 			// result contains .success, .range
 
+			// Make basic GET request query string
 			String rangeString = "Range: "; rangeString += result.range; rangeString += " m";
 			rangeString += "\t RX power: "; rangeString += DW1000Ng::getReceivePower(); rangeString += " dBm";
 
@@ -293,8 +320,27 @@ void loopDWM() {
 			queryString += "&ReceivePower=";
 			queryString += DW1000Ng::getReceivePower();
 
-			Serial.println(rangeString);
-			makeWifiRequest(queryString);
+			//Serial.println(rangeString);
+			//makeWifiRequestGET(queryString);
+
+
+			// Make JSON request (tutorial: https://techtutorialsx.com/2017/01/08/esp8266-posting-json-data-to-a-flask-server-on-the-cloud/)
+			//StaticJsonBuffer<300> JSONbuffer;
+			StaticJsonDocument<300> JSONdoc;
+			//JsonObject& JSONencoder = JSONbuffer.createObject();
+
+			JSONdoc["Range"] = result.range;
+			JSONdoc["Time"] = 0;
+			JSONdoc["AnchorNumber"] = thisAnchorNumber;
+			JSONdoc["Success"] = result.success;
+			JSONdoc["ReceivePower"] = DW1000Ng::getReceivePower();
+
+			char JSONmessageBuffer[300];
+			//JSONdoc.prettyPrintTo(JSONmessageBuffer, sizeof(JSONmessageBuffer));
+			serializeJson(JSONdoc, JSONmessageBuffer, sizeof(JSONmessageBuffer));
+			Serial.println(JSONmessageBuffer);
+
+			makeWifiRequestJSON(JSONmessageBuffer);
 
 		} 
 
