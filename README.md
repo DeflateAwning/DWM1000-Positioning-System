@@ -7,7 +7,8 @@ This section describes the parameters, sent by GET query, to the web server. Eac
 
 ### Successful Ranging Request
 1. Range
-2. Time (not implemented)
+2. Date
+	* Format: `datetime.datetime.strptime(date_time_str, '%Y-%m-%d %H:%M:%S.%f')`
 3. AnchorNumber (needs better implementation)
 4. Success
 	* Value of 0 for fail, 1 for success
@@ -27,8 +28,9 @@ This section describes the parameters, sent by GET query, to the web server. Eac
 ## Dependencies
 * arduino-dw1000-ng (No Modifications Yet)
 * ArduinoJson (v6)
-* WiFiUdp
-* NTPClient
+* WiFiUdp (no install required, I think)
+* ~NTPClient~ (Doesn't support milliseconds)
+* ezTime
 
 ## Iterative Design Notes
 * Does anything work?

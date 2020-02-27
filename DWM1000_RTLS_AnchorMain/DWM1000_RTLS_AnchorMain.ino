@@ -36,17 +36,25 @@ typedef ESP8266WebServer WEBServer;
 #include <DW1000NgRTLS.hpp>
 
 // NTP Client
-#include <NTPClient.h>
-#include <WiFiUdp.h>
+#include <ezTime.h>
 
 // Wifi Configuration Options
 const char* ssid = "UWBLS Net"; // Will's Settings
 const char* password = "123456789"; // Will's Settings
 
+
 // Wifi Sending Options
 const char* serverAddress = "http://enqb0w8a2ni1j.x.pipedream.net";
+#define JSON_MESSAGE_BUFFER_LENGTH 1024
 unsigned int thisAnchorNumber = 1;
 const bool printDebugMessages = true;
+const long utcOffsetInSeconds = 0;
+const char* dateFormat = "Y-m-d H:i:s.v";
+
+// Python Datetime Parsing
+//date_time_str = '2018-06-29 08:15:27.243860'
+//date_time_obj = datetime.datetime.strptime(date_time_str, '%Y-%m-%d %H:%M:%S.%f')
+
 
 typedef struct Position {
 	double x;
@@ -127,7 +135,23 @@ void setupWifi() {
 
 	Serial.print("\nConnected, IP Address: ");
 	Serial.println(WiFi.localIP());
+
+	initNTPTime();
+
+	Serial.print("NTP Time Updated to: ");
+	Serial.println(UTC.dateTime(dateFormat));
 }
+
+// Inits the ezTime NTP client, which updates itself automatically
+void initNTPTime() {
+	waitForSync();
+
+	// Optionally set update interval and server (defaults to ntp.pool.org, 30 minutes)
+	setInterval(15*60); // number of seconds to update (default: 30*60)
+	//setServer(); // char* of the server name (default: "ntp.pool.org")
+
+}
+
 
 void setupDWM() {
   
@@ -308,8 +332,8 @@ void loopDWM() {
 			queryString = "Range=";
 			queryString += result.range;
 
-			queryString += "&Time="; // TODO implement some anchor-side timing system
-			queryString += "0";
+			queryString += "&Date="; // TODO implement some anchor-side timing system
+			queryString += UTC.dateTime(dateFormat);
 
 			queryString += "&AnchorNumber=";
 			queryString += thisAnchorNumber;
@@ -324,19 +348,18 @@ void loopDWM() {
 			//makeWifiRequestGET(queryString);
 
 
-			// Make JSON request (tutorial: https://techtutorialsx.com/2017/01/08/esp8266-posting-json-data-to-a-flask-server-on-the-cloud/)
-			//StaticJsonBuffer<300> JSONbuffer;
-			StaticJsonDocument<300> JSONdoc;
-			//JsonObject& JSONencoder = JSONbuffer.createObject();
+			// Make JSON request 
+			// Tutorial w/Python: https://techtutorialsx.com/2017/01/08/esp8266-posting-json-data-to-a-flask-server-on-the-cloud/)
+			// Tutorial for v6!!: https://arduinojson.org/v6/example/generator/
+			StaticJsonDocument<JSON_MESSAGE_BUFFER_LENGTH> JSONdoc;
 
 			JSONdoc["Range"] = result.range;
-			JSONdoc["Time"] = 0;
+			JSONdoc["Date"] = UTC.dateTime(dateFormat);
 			JSONdoc["AnchorNumber"] = thisAnchorNumber;
 			JSONdoc["Success"] = result.success;
 			JSONdoc["ReceivePower"] = DW1000Ng::getReceivePower();
 
-			char JSONmessageBuffer[300];
-			//JSONdoc.prettyPrintTo(JSONmessageBuffer, sizeof(JSONmessageBuffer));
+			char JSONmessageBuffer[JSON_MESSAGE_BUFFER_LENGTH];
 			serializeJson(JSONdoc, JSONmessageBuffer, sizeof(JSONmessageBuffer));
 			Serial.println(JSONmessageBuffer);
 
