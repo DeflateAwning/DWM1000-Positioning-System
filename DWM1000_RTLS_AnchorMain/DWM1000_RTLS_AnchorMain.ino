@@ -16,18 +16,23 @@
 #include <ESP8266WiFi.h>
 #include <ESP8266HTTPClient.h>
  
+ /*
 // ESP8266 Libraries (Using AutoConnect)
 #include <ESP8266WiFi.h>
 #include <ESP8266WebServer.h>
 typedef ESP8266WebServer WEBServer;
 #include <FS.h>
 #include <AutoConnect.h>
-/* For ESP32 Architecture (?)
+// For ESP32 Architecture (?)
 #include <WiFi.h>
 #include <WebServer.h>
 #include <SPIFFS.h>
- */
+ 
+ 
+#include <PageBuilder.h>*/
 
+ #include <ArduinoJson.h>
+ 
  
 // DWM1000 Libraries
 #include <DW1000Ng.hpp>
@@ -54,6 +59,10 @@ const char* dateFormat = "Y-m-d H:i:s.v";
 // Python Datetime Parsing
 //date_time_str = '2018-06-29 08:15:27.243860'
 //date_time_obj = datetime.datetime.strptime(date_time_str, '%Y-%m-%d %H:%M:%S.%f')
+
+unsigned long startTime; // Keeping time for periodic JSON requests to web server.
+
+StaticJsonDocument<JSON_MESSAGE_BUFFER_LENGTH> JSONdoc;
 
 
 typedef struct Position {
@@ -122,6 +131,8 @@ void setup() {
 	
 	// Setup the DWM1000
 	setupDWM();
+	
+	startTime = millis();
 
 }
 
@@ -210,6 +221,19 @@ void loop() {
 	// Run the DWM1000 Check for Ranging, do appropriate response to Wifi
 	loopDWM();
 
+	
+	
+	if(millis() - startTime > 5000)
+	{
+		startTime = millis();
+		char JSONmessageBuffer[JSON_MESSAGE_BUFFER_LENGTH];
+		serializeJson(JSONdoc, JSONmessageBuffer, sizeof(JSONmessageBuffer));
+		Serial.println(JSONmessageBuffer);
+		
+		makeWifiRequestJSON(JSONmessageBuffer);
+		JSONdoc.clear();
+	}
+	
 	// Run the Test Wifi System (to a RequestBin server)
 	//testWifiRequestBin();
 
@@ -351,20 +375,22 @@ void loopDWM() {
 			// Make JSON request 
 			// Tutorial w/Python: https://techtutorialsx.com/2017/01/08/esp8266-posting-json-data-to-a-flask-server-on-the-cloud/)
 			// Tutorial for v6!!: https://arduinojson.org/v6/example/generator/
-			StaticJsonDocument<JSON_MESSAGE_BUFFER_LENGTH> JSONdoc;
-
+			
+			//StaticJsonDocument<JSON_MESSAGE_BUFFER_LENGTH> JSONdoc;
+			
 			JSONdoc["Range"] = result.range;
 			JSONdoc["Date"] = UTC.dateTime(dateFormat);
 			JSONdoc["AnchorNumber"] = thisAnchorNumber;
 			JSONdoc["Success"] = result.success;
-			JSONdoc["ReceivePower"] = DW1000Ng::getReceivePower();
-
+			JSONdoc["ReceivePower"] = DW1000Ng::getReceivePower();	
+			
+			/*
 			char JSONmessageBuffer[JSON_MESSAGE_BUFFER_LENGTH];
 			serializeJson(JSONdoc, JSONmessageBuffer, sizeof(JSONmessageBuffer));
 			Serial.println(JSONmessageBuffer);
 
 			makeWifiRequestJSON(JSONmessageBuffer);
-
+			*/
 		} 
 
  // This chunk is for receiving a range from another non-main anchor
@@ -393,4 +419,6 @@ void loopDWM() {
 		*/
 		
 	}
+
+	
 }
