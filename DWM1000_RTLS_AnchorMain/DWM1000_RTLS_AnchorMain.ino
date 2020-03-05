@@ -49,8 +49,8 @@ const char* password = "123456789"; // Will's Settings
 
 
 // Wifi Sending Options
-const char* serverAddress = "http://enqb0w8a2ni1j.x.pipedream.net";
-#define JSON_MESSAGE_BUFFER_LENGTH 1024
+const char* serverAddress = "http://enjqwtr8gwwb.x.pipedream.net/";
+#define JSON_MESSAGE_BUFFER_LENGTH 2048
 unsigned int thisAnchorNumber = 1;
 const bool printDebugMessages = true;
 const long utcOffsetInSeconds = 0;
@@ -63,7 +63,16 @@ const char* dateFormat = "Y-m-d H:i:s.v";
 unsigned long startTime; // Keeping time for periodic JSON requests to web server.
 
 StaticJsonDocument<JSON_MESSAGE_BUFFER_LENGTH> JSONdoc;
+//DynamicJsonDocument JSONdoc(JSON_MESSAGE_BUFFER_LENGTH);
+/*
+JsonArray range = JSONdoc.to<JsonArray>();
+JsonArray date = JSONdoc.to<JsonArray>();
+JsonArray AnchorNumber = JSONdoc.to<JsonArray>();
+JsonArray Success = JSONdoc.to<JsonArray>();
+JsonArray ReceivePower = JSONdoc.to<JsonArray>();
+*/
 
+JsonArray bufferArray = JSONdoc.createNestedArray("BufferArray");
 
 typedef struct Position {
 	double x;
@@ -221,18 +230,27 @@ void loop() {
 	// Run the DWM1000 Check for Ranging, do appropriate response to Wifi
 	loopDWM();
 
-	
-	
 	if(millis() - startTime > 5000)
 	{
 		startTime = millis();
 		char JSONmessageBuffer[JSON_MESSAGE_BUFFER_LENGTH];
-		serializeJson(JSONdoc, JSONmessageBuffer, sizeof(JSONmessageBuffer));
+		serializeJson(JSONdoc, JSONmessageBuffer, JSON_MESSAGE_BUFFER_LENGTH);
 		Serial.println(JSONmessageBuffer);
 		
 		makeWifiRequestJSON(JSONmessageBuffer);
+		
 		JSONdoc.clear();
+		bufferArray = JSONdoc.createNestedArray("BufferArray");
+		
+		// Clear the Buffer Array (Untested)
+		/*
+		while (bufferArray.size() != 0) {
+			bufferArray.remove(0);
+		}
+		*/
+		
 	}
+	
 	
 	// Run the Test Wifi System (to a RequestBin server)
 	//testWifiRequestBin();
@@ -338,6 +356,7 @@ void loopDWM() {
 			DW1000NgRTLS::transmitRangingInitiation(&recv_data[2], tag_shortAddress);
 			DW1000NgRTLS::waitForTransmission();
 
+			// result contains .success, .range
 			RangeAcceptResult result = DW1000NgRTLS::anchorRangeAccept(NextActivity::RANGING_CONFIRM, next_anchor);
 			if(!result.success) {
 				// TODO Blink an error LED or something
@@ -346,30 +365,6 @@ void loopDWM() {
 				return;
 			}
 
-			// result contains .success, .range
-
-			// Make basic GET request query string
-			String rangeString = "Range: "; rangeString += result.range; rangeString += " m";
-			rangeString += "\t RX power: "; rangeString += DW1000Ng::getReceivePower(); rangeString += " dBm";
-
-			String queryString;
-			queryString = "Range=";
-			queryString += result.range;
-
-			queryString += "&Date="; // TODO implement some anchor-side timing system
-			queryString += UTC.dateTime(dateFormat);
-
-			queryString += "&AnchorNumber=";
-			queryString += thisAnchorNumber;
-
-			queryString += "&Success=";
-			queryString += (int)result.success;
-
-			queryString += "&ReceivePower=";
-			queryString += DW1000Ng::getReceivePower();
-
-			//Serial.println(rangeString);
-			//makeWifiRequestGET(queryString);
 
 
 			// Make JSON request 
@@ -377,20 +372,34 @@ void loopDWM() {
 			// Tutorial for v6!!: https://arduinojson.org/v6/example/generator/
 			
 			//StaticJsonDocument<JSON_MESSAGE_BUFFER_LENGTH> JSONdoc;
+			/*
+			if(JSONdoc.isNull())
+				Serial.println("JSONdoc is null");
+			range.add(result.range);
+			date.add(UTC.dateTime(dateFormat));
+			AnchorNumber.add(thisAnchorNumber);
+			Success.add(result.success);
+			ReceivePower.add(DW1000Ng::getReceivePower());
+			*/
 			
-			JSONdoc["Range"] = result.range;
-			JSONdoc["Date"] = UTC.dateTime(dateFormat);
-			JSONdoc["AnchorNumber"] = thisAnchorNumber;
-			JSONdoc["Success"] = result.success;
-			JSONdoc["ReceivePower"] = DW1000Ng::getReceivePower();	
+			JsonObject thisBufferItem = bufferArray.createNestedObject(); // might need an arg, hopefully not
+			thisBufferItem["Range"] = result.range;
+			thisBufferItem["Date"] = UTC.dateTime(dateFormat);
+			thisBufferItem["AnchorNumber"] = thisAnchorNumber;
+			thisBufferItem["Success"] = result.success;
+			thisBufferItem["ReceivePower"] = DW1000Ng::getReceivePower();
+			
+			// Stick it into the buffer array (already done, don't need this, actually)
+			//bufferArray.add(thisBufferItem);
 			
 			/*
 			char JSONmessageBuffer[JSON_MESSAGE_BUFFER_LENGTH];
-			serializeJson(JSONdoc, JSONmessageBuffer, sizeof(JSONmessageBuffer));
+			serializeJson(JSONdoc, JSONmessageBuffer, JSON_MESSAGE_BUFFER_LENGTH);
 			Serial.println(JSONmessageBuffer);
-
-			makeWifiRequestJSON(JSONmessageBuffer);
 			*/
+			
+			//makeWifiRequestJSON(JSONmessageBuffer);
+			
 		} 
 
  // This chunk is for receiving a range from another non-main anchor
@@ -419,6 +428,15 @@ void loopDWM() {
 		*/
 		
 	}
+	
+		
 
+	
+}
+
+
+void clearAndSetupJSONStructure() {
+	JSONdoc.clear(); // hopefully this works
+	
 	
 }
