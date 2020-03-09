@@ -7,18 +7,15 @@
 #include <DW1000NgRTLS.hpp>
 
 // connection pins
-#if defined(ESP8266)
-const uint8_t PIN_SS = 15;
-#else
-const uint8_t PIN_RST = 9;
-const uint8_t PIN_SS = SS; // spi select pin
-#endif
+const uint8_t PIN_DWM_SS = 15;
 
 const uint8_t PIN_IN1 = 3; // GPIO3, also RXD, switch
 const uint8_t PIN_IN2 = 10; // GPIO10, also Vibration sensor, switch
 
 const uint8_t PIN_OUT1 = 1; // GPIO1, LED 1
 const uint8_t PIN_OUT2 = 9; // GPIO9, LED 2
+
+const uint8_t PIN_ANALOG = A0;
 
 device_configuration_t DEFAULT_CONFIG = {
 	false,
@@ -56,19 +53,17 @@ void setup() {
 	pinMode(PIN_OUT1, OUTPUT);
 	pinMode(PIN_OUT2, OUTPUT);
 	
-	
+	#if defined(DWM1000Testing)
 	// Setup the DWM1000
-	//setupDWM();
+	setupDWM();
+	#endif
 }
 
 void setupDWM() {
   
 	// initialize the driver
-	#if defined(ESP8266)
-	DW1000Ng::initializeNoInterrupt(PIN_SS);
-	#else
-	DW1000Ng::initializeNoInterrupt(PIN_SS, PIN_RST);
-	#endif
+	DW1000Ng::initializeNoInterrupt(PIN_DWM_SS);
+	
 	Serial.println(F("DW1000Ng initialized ..."));
 	// general configuration
 	DW1000Ng::applyConfiguration(DEFAULT_CONFIG);
@@ -102,37 +97,40 @@ void setupDWM() {
 void loop() {
 	
 	Serial.println("Starting Test");
-	delay(1000);
+	delay(500);
 	Serial.println("LED 1 ON");
 	digitalWrite(PIN_OUT1, HIGH);
-	delay(1000);
+	delay(500);
 	digitalWrite(PIN_OUT1,LOW);
 	
-	Serial.println("LED 1 ON");
-	digitalWrite(PIN_OUT1, HIGH);
-	delay(1000);
-	digitalWrite(PIN_OUT1,LOW);
+	Serial.println("LED 2 ON");
+	digitalWrite(PIN_OUT2, HIGH);
+	delay(500);
+	digitalWrite(PIN_OUT2, LOW);
 	
 	Serial.println("Testing Button 1");
-	for(int i = 0; i < 20; i++)
+	for(int i = 0; i < 15; i++)
 	{
 		int Button1 = digitalRead(PIN_IN1);
 		if(Button1 == 1)
 			Serial.println("Button 1 PRESSED");
 		else
 			Serial.println("Button 1 NOT PRESSED");
-		delay(1000);
+		delay(250);
 	}
 	
 	Serial.println("Testing Button 2");
-	for(int i = 0; i < 20; i++)
+	for(int i = 0; i < 15; i++)
 	{
 		int Button2 = digitalRead(PIN_IN2);
 		if(Button2 == 1)
 			Serial.println("Button 2 PRESSED");
 		else
 			Serial.println("Button 2 NOT PRESSED");
-		delay(1000);
+		delay(250);
 	}
+	
+	int sensorValue = analogRead(PIN_ANALOG);
+	float voltage = (float)sensorValue * 80.0 / 1024.0 / 5.0;
 	
 }
