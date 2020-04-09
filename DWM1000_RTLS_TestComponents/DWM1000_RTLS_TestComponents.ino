@@ -4,14 +4,15 @@
 
 
 // Optional: Define Testing
-//#define ENABLE_DWM1000_TESTING 1
-#define ENABLE_PIN_COPY 1
+#define ENABLE_DWM1000_TESTING 1
+//#define ENABLE_PIN_COPY 1
 #define ENABLE_SWITCH_TESTING 1 // always leave on
-//#define ENABLE_SERIAL 1
+#define ENABLE_SERIAL 1
 
 
-// Currently Working: ENABLE_SWITCH_TESTING+ENABLE_SERIAL
-// Currently Working: ENABLE_SWITCH_TESTING+ENABLE_PIN_COPY for Out1 only
+// Currently Working: ENABLE_SWITCH_TESTING + ENABLE_SERIAL
+// Currently Working: ENABLE_SWITCH_TESTING + ENABLE_PIN_COPY 		-> for Out1 only, Out2 is inherently broken
+// Currently Testing: ENABLE_SWITCH_TESTING + ENABLE_SERIAL + ENABLE_DWM1000_TESTING
 
 // Disable Wifi
 #include "ESP8266WiFi.h"
@@ -38,7 +39,7 @@ const uint8_t PIN_IN2 = 10; // GPIO10, also Vibration sensor, switch
 
 const uint8_t PIN_BUILTIN_LED = 2; // or LED_BUILTIN macro
 const uint8_t PIN_OUT1 = 1; // GPIO1/TXD, LED 1
-const uint8_t PIN_OUT2 = 9; // GPIO9, LED 2 (Requires DIO) - BREAKS EVERYTHING, LEAVE COMMENTED
+const uint8_t PIN_OUT2 = 9; // GPIO9, LED 2 (Requires DIO) - BREAKS EVERYTHING INHERENTLY, LEAVE COMMENTED
 
 const uint8_t PIN_ANALOG = A0;
 
@@ -79,9 +80,6 @@ void setup() {
 	// Disable Wifi
 	WiFi.forceSleepBegin();
 	delay(1);
-
-	// Set the Watchdog
-	//ESP.wdtEnable(12000);
 
 	// GPIO input and output setup
 	#ifdef ENABLE_SWITCH_TESTING
